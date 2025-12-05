@@ -1,0 +1,49 @@
+services:
+  ros-humble-docker-ws:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - ROS_DISTRO=humble
+    working_dir: /home/user/ws
+    network_mode: "host"
+    ipc: host
+    privileged: true
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - type: bind
+        source: /tmp/.X11-unix
+        target: /tmp/.X11-unix
+      - type: bind
+        source: /dev/dri
+        target: /dev/dri
+      - type: bind
+        source: ..
+        target: /home/user/ws/src
+      - type: bind
+        source: ../../cache/humble/build
+        target: /home/user/ws/build
+      - type: bind
+        source: ../../cache/humble/install
+        target: /home/user/ws/install
+      - type: bind
+        source: ../../cache/humble/log
+        target: /home/user/ws/log
+      - type: volume
+        source: apt-cache-apt-lists
+        target: /var/lib/apt/lists
+      - type: volume
+        source: apt-cache-apt-archives
+        target: /var/cache/apt/archives
+      - type: bind
+        source: /dev
+        target: /dev
+    tty: true
+    command: /bin/bash -c "sudo apt update && sudo rosdep update && sudo rosdep install -riy --from-paths src --rosdistro humble && bash"
+
+volumes:
+  apt-cache-apt-lists:
+    name: ros-humble-apt-cache-apt-lists
+  apt-cache-apt-archives:
+    name: ros-humble-apt-cache-apt-archives

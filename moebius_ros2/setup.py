@@ -25,8 +25,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            # ↓↓↓ ここを追加しました！ ↓↓↓
-            'driver = moebius_ros2.driver_node:main',
+            'moebius_driver = moebius_ros2.driver_node:main',
         ],
     },
 )

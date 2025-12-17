@@ -11,9 +11,9 @@ teleop_twist_joy_node:
     # --- 速度スケール (0.0 ~ 1.0) ---
     # 元のXMLは0.05ですが、今回のドライバはPWM制御なので
     # ここは「1.0」にして、Launchファイルの 'pwm_limit' で最高速度を調整するのが正解です。
-    scale_linear: {x: 1.0, y: 1.0, z: 1.0}
+    scale_linear: {x: 1.0, y: -1.0, z: 1.0}
     scale_angular: {yaw: 1.0}
     
-    # --- 安全装置ボタン ---
+      # --- 安全装置ボタン ---
     # ボタン4 (L1ボタン) を押している間だけ動きます
     enable_button: 4

@@ -57,7 +57,6 @@ def generate_launch_description():
         arguments=['-d', LaunchConfiguration('rvizconfig')],
     )
 
-    
     # B. STM32ドライバ (最新の driver_node_3 を使用)
     moebius_driver_node = Node(
         package='moebius_ros2',
@@ -65,14 +64,13 @@ def generate_launch_description():
         name='moebius_driver',
         output='screen',
         parameters=[{
-            'port': '/dev/ttyUSB0',
+            'port': '/dev/ttyUSB0', 
             'baud': 460800,
             'pwm_limit': 150,
             'tread': 0.255,      # 左右の車輪間隔
             'wheelbase': 0.230   # 前後の車輪間隔
         }]
     )
-
 
     # C. コントローラ入力 (Joy)
     joy_node = Node(

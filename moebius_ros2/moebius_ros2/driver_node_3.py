@@ -94,12 +94,6 @@ class MoebiusDriver(Node):
 
 
 
-        m2 = -m2
-
-        m3 = -m3
-
-
-
         cmd_str = f"{int(m1)},{int(m2)},{int(m3)},{int(m4)}\n"
 
         try:

@@ -40,7 +40,7 @@ class MoebiusDriver(Node):
 
         self.lx_ly = 0.255 + 0.230
 
-        self.pwm_limit = 150
+        self.pwm_limit = 100
 
 
 
@@ -68,19 +68,19 @@ class MoebiusDriver(Node):
 
     def cmd_cb(self, msg):
 
-        vx, vy, wz = msg.linear.x, msg.linear.y, msg.angular.z
+        vy, vx, wz = msg.linear.x, msg.linear.y, msg.angular.z * 1.5
 
-        f = (self.lx_ly / 2.0)
+        f = (self.lx_ly)
 
 
 
-        speed_a = vx - vy - f * wz
+        speed_a = -vx + vy + f * wz
 
-        speed_b = vx + vy + f * wz
+        speed_b = vx + vy - f * wz
 
-        speed_c = vx + vy - f * wz
+        speed_c = -vx + vy - f * wz
 
-        speed_d = vx - vy + f * wz
+        speed_d = vx + vy + f * wz
 
 
 

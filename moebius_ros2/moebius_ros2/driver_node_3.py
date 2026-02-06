@@ -180,15 +180,15 @@ class MoebiusDriver(Node):
 
 
 
-                    v1, v2, v3, v4 = v[0], v[1], v[2], v[3]
+                    v1, v2, v3, v4 = v[0], -v[1], -v[2], v[3]
 
 
 
-                    vx = (v1 + v2 + v3 + v4) / 4.0
+                    vx = (-v1 + v2 - v3 + v4) / 4.0
 
-                    vy = (-v1 + v2 + v3 - v4) / 4.0
+                    vy = -(v1 + v2 + v3 + v4) / 4.0
 
-                    wz = (-v1 + v2 - v3 + v4) / (2.0 * self.lx_ly)
+                    wz = (v1 - v2 - v3 + v4) / (2.0 * self.lx_ly)
 
 
 

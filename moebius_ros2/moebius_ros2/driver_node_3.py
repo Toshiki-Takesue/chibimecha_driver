@@ -173,7 +173,7 @@ class MoebiusDriver(Node):
         imu.linear_acceleration.y = data[1] / 16384.0 * 9.80665
         # z is missing in STM32 code, ignoring
 
-        imu.angular_velocity.z = data[2] / 131.0 * (math.pi / 180.0)
+        imu.angular_velocity.z = (data[2] / 131.0 * (math.pi / 180.0))
 
         #covariance
         # Angular Velocity Covariance (角速度の信頼度)

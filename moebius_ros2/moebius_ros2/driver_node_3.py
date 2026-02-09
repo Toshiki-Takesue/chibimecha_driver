@@ -5,11 +5,14 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
 from tf2_ros import TransformBroadcaster
 import serial, threading, math, time
+from collections import deque
 
 class MoebiusDriver(Node):
     def __init__(self):
         super().__init__('moebius_driver')
 
+        self.declare_parameter('publish_tf', True) 
+        self.publish_tf = self.get_parameter('publish_tf').get_parameter_value().bool_value
         try:
             self.ser = serial.Serial('/dev/ttyUSB0', 460800, timeout=0.1)
         except serial.SerialException as e:
@@ -23,6 +26,17 @@ class MoebiusDriver(Node):
 
         self.x, self.y, self.th = 0.0, 0.0, 0.0
         self.last_time = self.get_clock().now()
+
+        # IMUキャリブレーション用
+        self.imu_offset = None
+        self.imu_samples = []
+        self.imu_calibration_count = 200
+
+        # IMU移動平均フィルタ
+        self.imu_filter_size = 10
+        self.imu_ax_buffer = deque(maxlen=self.imu_filter_size)
+        self.imu_ay_buffer = deque(maxlen=self.imu_filter_size)
+        self.imu_gz_buffer = deque(maxlen=self.imu_filter_size)
 
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
         self.imu_pub = self.create_publisher(Imu, '/imu/data', 10)
@@ -79,7 +93,9 @@ class MoebiusDriver(Node):
 
                     now = self.get_clock().now()
                     dt = (now - self.last_time).nanoseconds / 1e9
-                    if dt <= 0: dt = 0.001
+                    # if dt <= 0: dt = 0.001
+                    if dt < 0.001:
+                        continue
                     self.last_time = now
 
                     # Kinematics (元のまま維持)
@@ -90,11 +106,11 @@ class MoebiusDriver(Node):
                     # v[1] = -v[1]
                     # v[2] = -v[2]
 
-                    v1, v2, v3, v4 = v[0], -v[1], -v[2], v[3]
+                    v1, v2, v3, v4 = -v[0], v[1], v[2], -v[3]
 
-                    vx = (-v1 + v2 - v3 + v4) / 4.0
-                    vy = -(v1 + v2 + v3 + v4) / 4.0
-                    wz = (v1 - v2 - v3 + v4) / (2.0 * self.lx_ly)
+                    vy = (-v1 + v2 - v3 + v4) / 4.0
+                    vx = (v1 + v2 + v3 + v4) / 4.0
+                    wz = (v1 - v2 - v3 + v4) / (2.0 * self.lx_ly) * 1.5
 
                     delta_th = wz * dt
                     delta_x = (vx * math.cos(self.th) - vy * math.sin(self.th)) * dt
@@ -114,16 +130,17 @@ class MoebiusDriver(Node):
         q = [0.0, 0.0, math.sin(self.th/2), math.cos(self.th/2)]
 
         # --- EKF対応のためTF配信を停止（コメントアウト） ---
-        # t = TransformStamped()
-        # t.header.stamp = now.to_msg()
-        # t.header.frame_id = 'odom'
-        # t.child_frame_id = 'base_link'
-        # t.transform.translation.x = self.x
-        # t.transform.translation.y = self.y
-        # t.transform.translation.z = 0.0
-        # t.transform.rotation.z = q[2]
-        # t.transform.rotation.w = q[3]
-        # self.tf_br.sendTransform(t)
+        if self.publish_tf:
+            t = TransformStamped()
+            t.header.stamp = now.to_msg()
+            t.header.frame_id = 'odom'
+            t.child_frame_id = 'base_link'
+            t.transform.translation.x = self.x
+            t.transform.translation.y = self.y
+            t.transform.translation.z = 0.0
+            t.transform.rotation.z = q[2]
+            t.transform.rotation.w = q[3]
+            self.tf_br.sendTransform(t)
         # -----------------------------------------------
 
         # OdometryメッセージはEKFの入力として必要なので配信し続ける
@@ -161,19 +178,68 @@ class MoebiusDriver(Node):
         self.odom_pub.publish(o)
 
     def pub_imu(self, now, data):
+        # キャリブレーション処理
+        if self.imu_offset is None:
+            self.imu_samples.append(data.copy())
+            
+            if len(self.imu_samples) >= self.imu_calibration_count:
+                
+                # 中央値を使用（外れ値に強い）
+                ax_samples = [s[0] for s in self.imu_samples]
+                ay_samples = [s[1] for s in self.imu_samples]
+                gz_samples = [s[2] for s in self.imu_samples]
+                
+                ax_samples.sort()
+                ay_samples.sort()
+                gz_samples.sort()
+                
+                mid = self.imu_calibration_count // 2
+                avg_ax = ax_samples[mid]
+                avg_ay = ay_samples[mid]
+                avg_gz = gz_samples[mid]
+                
+                
+                self.imu_offset = [avg_ax, avg_ay, avg_gz]
+                self.get_logger().info(f"IMU calibration complete!")
+                self.get_logger().info(f"Offset: ax={avg_ax:.1f}, ay={avg_ay:.1f}, gz={avg_gz:.1f}")
+            else:
+                if len(self.imu_samples) % 40 == 0:
+                    self.get_logger().info(f"IMU calibrating... {len(self.imu_samples)}/{self.imu_calibration_count}")
+            
+            return
+        
+        # オフセット補正
+        data_corrected = [
+            data[0] - self.imu_offset[0],
+            data[1] - self.imu_offset[1],
+            data[2] - self.imu_offset[2]
+        ]
+        # 移動平均フィルタ（追加）
+        self.imu_ax_buffer.append(data_corrected[0])
+        self.imu_ay_buffer.append(data_corrected[1])
+        self.imu_gz_buffer.append(data_corrected[2])
+        
+        # バッファが満たされるまで待つ
+        if len(self.imu_ax_buffer) < self.imu_filter_size:
+            return
+        
+        # 平均を計算
+        ax_filtered = sum(self.imu_ax_buffer) / len(self.imu_ax_buffer)
+        ay_filtered = sum(self.imu_ay_buffer) / len(self.imu_ay_buffer)
+        gz_filtered = sum(self.imu_gz_buffer) / len(self.imu_gz_buffer)
         imu = Imu()
         imu.header.stamp = now.to_msg()
         imu.header.frame_id = 'imu_link'
 
         # Raw value to physical value conversion is needed here ideally.
         # Assuming MPU6050 default sensitivity for now (just placeholders)
-        # Accel: 16384 LSB/g, Gyro: 131 LSB/deg/s
+        # Accel: 16384 LSB/g, Gyro: 16.4 LSB/deg/s
 
         imu.linear_acceleration.x = data[0] / 16384.0 * 9.80665
         imu.linear_acceleration.y = data[1] / 16384.0 * 9.80665
         # z is missing in STM32 code, ignoring
 
-        imu.angular_velocity.z = (data[2] / 131.0 * (math.pi / 180.0))
+        imu.angular_velocity.z = (data[2] / 16.4 * (math.pi / 180.0))
 
         #covariance
         # Angular Velocity Covariance (角速度の信頼度)
@@ -192,9 +258,9 @@ class MoebiusDriver(Node):
         
         # Orientation Covariance (姿勢の信頼度)
         imu.orientation_covariance = [
-            0.05, 0.0, 0.0,
-            0.0, 0.05, 0.0,
-            0.0, 0.0, 0.05
+            -1.0, 0.0, 0.0,
+            0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0
         ]
         self.imu_pub.publish(imu)
 

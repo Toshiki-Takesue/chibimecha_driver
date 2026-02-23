@@ -3,6 +3,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
+import launch_ros.actions
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory, get_package_share_path
 
@@ -37,16 +38,24 @@ def generate_launch_description():
         executable='joint_state_publisher',
     )
 
-    # 2. 足回りドライバ (★ここでTFを出すように設定！)
+    # 2. 足回りドライバ (ここでTFを出すように設定！)
     driver_node = Node(
         package='moebius_ros2',
         executable='moebius_driver_3',
         name='moebius_driver',
         output='screen',
         parameters=[{
-            'publish_tf': True,  # ★重要: これで生のTFが出ます
+            'publish_tf': False,  # 重要: これで生のTFが出ます
             'pwm_limit': 150,
         }]
+    )
+
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[os.path.join(get_package_share_directory("moebius_ros2"), 'config', 'ekf.yaml')]
     )
 
     # 3. LIDAR
@@ -81,7 +90,7 @@ def generate_launch_description():
     tf_laser = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments=['0.1', '0.0', '0.1', '0.0', '0.0', '0.0', 'base_link', 'laser']
+        arguments=['0.0', '0.0', '0.3', '0.0', '0.0', '0.0', 'base_link', 'laser']
     )
 
     return LaunchDescription([
@@ -92,5 +101,6 @@ def generate_launch_description():
         lidar_node,
         joy_node,
         teleop_node,
-        tf_laser
+        tf_laser,
+        ekf_node
     ])

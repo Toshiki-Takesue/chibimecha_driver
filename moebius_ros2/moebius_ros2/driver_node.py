@@ -11,7 +11,7 @@ class MoebiusDriver(Node):
     def __init__(self):
         super().__init__('moebius_driver')
 
-        self.declare_parameter('publish_tf', True)
+        self.declare_parameter('publish_tf', False)
         self.publish_tf = self.get_parameter('publish_tf').get_parameter_value().bool_value
         try:
             self.ser = serial.Serial('/dev/mecanum_base', 460800, timeout=0.1)

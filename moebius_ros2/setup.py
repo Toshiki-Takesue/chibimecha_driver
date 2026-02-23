@@ -31,7 +31,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'moebius_driver_3 = moebius_ros2.driver_node_3:main',
+            'moebius_driver_3 = moebius_ros2.driver_node:main',
+            'moebius_driver = moebius_ros2.driver_node_without_IMU:main',
         ],
     },
 )

@@ -14,7 +14,7 @@ class MoebiusDriver(Node):
         self.declare_parameter('publish_tf', True) 
         self.publish_tf = self.get_parameter('publish_tf').get_parameter_value().bool_value
         try:
-            self.ser = serial.Serial('/dev/ttyUSB0', 460800, timeout=0.1)
+            self.ser = serial.Serial('/dev/mecanum_base', 460800, timeout=0.1)
         except serial.SerialException as e:
             self.get_logger().error(f"Serial connection failed: {e}")
             raise e
